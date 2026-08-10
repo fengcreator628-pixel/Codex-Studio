@@ -1,0 +1,228 @@
+import React, { useState } from 'react';
+import { Project, WritingStreak } from '../types';
+import { Book, Plus, Flame, Clock, BarChart2, Moon, Sun, Tag, Filter, Trash2 } from 'lucide-react';
+import { calculateStreak } from '../services/streak';
+import { useSettings } from '../contexts/SettingsContext';
+import { WritingTrendChart } from './WritingTrendChart';
+import { deleteProject } from '../services/storage';
+
+interface DashboardProps {
+  projects: Project[];
+  onSelectProject: (project: Project) => void;
+  onRefresh: () => void;
+  onNavigateToCreate: () => void;
+  onNavigateToStreak: () => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject, onRefresh, onNavigateToCreate, onNavigateToStreak }) => {
+  const streakInfo: WritingStreak = calculateStreak();
+  const { theme, toggleTheme, lang, toggleLang, t } = useSettings();
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // Collect all unique tags across all projects
+  const allTags = Array.from(
+    new Set(projects.flatMap(p => p.projectTags || []))
+  ).filter(Boolean);
+
+  const filteredProjects = selectedTag
+    ? projects.filter(p => p.projectTags && p.projectTags.includes(selectedTag))
+    : projects;
+
+  const handleDeleteProject = (e: React.MouseEvent, projectId: string, title: string) => {
+    e.stopPropagation();
+    if (window.confirm(`確定要將作品「${title}」從書架中刪除嗎？此操作無法復原。`)) {
+      deleteProject(projectId);
+      onRefresh();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 p-8 transition-colors duration-300">
+      <div className="max-w-5xl mx-auto">
+        <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-stone-800 dark:text-stone-100 mb-1">{t('dashboard.title')}</h1>
+            <p className="text-stone-500 dark:text-stone-400 text-sm font-medium">{t('dashboard.subtitle')}</p>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+             {/* Settings Toggles */}
+             <div className="flex items-center bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full px-2 py-1 shadow-sm mr-4">
+                <button 
+                  onClick={toggleTheme} 
+                  className="p-2 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
+                  title="Toggle Theme"
+                >
+                  {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                </button>
+                <div className="w-px h-4 bg-stone-200 dark:bg-stone-800 mx-1"></div>
+                <button 
+                  onClick={toggleLang}
+                  className="p-2 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 text-xs font-bold transition-colors w-10"
+                  title="Switch Language"
+                >
+                  {lang === 'en' ? 'EN' : '繁中'}
+                </button>
+             </div>
+
+             <div 
+                className="flex items-center bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full px-4 py-2 shadow-sm space-x-6 cursor-pointer hover:border-amber-300 dark:hover:border-amber-700 transition-colors"
+                onClick={onNavigateToStreak}
+             >
+                <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-500 group">
+                  <div className="bg-amber-50 dark:bg-amber-950 p-1.5 rounded-full group-hover:bg-amber-100 dark:group-hover:bg-amber-900 transition-colors">
+                    <Flame size={16} fill="currentColor" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-stone-400 dark:text-stone-500 uppercase tracking-wider font-bold">{t('dashboard.streak')}</span>
+                    <span className="font-bold leading-none text-stone-800 dark:text-stone-200">{streakInfo.currentStreak} {t('dashboard.days')}</span>
+                  </div>
+                </div>
+                
+                <div className="w-px h-8 bg-stone-100 dark:bg-stone-800"></div>
+                
+                <div className="flex items-center space-x-2 text-stone-600 dark:text-stone-400">
+                    <div className="bg-stone-50 dark:bg-stone-800 p-1.5 rounded-full">
+                      <Clock size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-stone-400 dark:text-stone-500 uppercase tracking-wider font-bold">{t('dashboard.lastWritten')}</span>
+                      <span className="font-bold leading-none text-sm text-stone-800 dark:text-stone-200">
+                        {streakInfo.lastWritingDate ? new Date(streakInfo.lastWritingDate).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : t('dashboard.none')}
+                      </span>
+                    </div>
+                </div>
+                
+                <div className="ml-2 text-stone-300 dark:text-stone-600">
+                    <BarChart2 size={16} />
+                </div>
+             </div>
+          </div>
+        </header>
+
+        {/* 7-Day Writing Trend Chart */}
+        <WritingTrendChart />
+
+        {/* Tag Filter Bar */}
+        {allTags.length > 0 && (
+          <div className="mb-8 flex items-center space-x-2 flex-wrap gap-y-2 bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800">
+            <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider flex items-center mr-2">
+              <Filter size={14} className="mr-1.5" />
+              {t('dashboard.filterTag')}:
+            </span>
+            <button
+              onClick={() => setSelectedTag(null)}
+              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                selectedTag === null
+                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 font-bold'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200'
+              }`}
+            >
+              {t('dashboard.allTags')} ({projects.length})
+            </button>
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(tag)}
+                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors flex items-center ${
+                  selectedTag === tag
+                    ? 'bg-amber-500 text-white font-bold shadow-sm'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
+                }`}
+              >
+                <Tag size={11} className="mr-1" />
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* New Project Card */}
+          <div 
+             className="bg-white dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-xl p-6 flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:border-stone-400 dark:hover:border-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-all cursor-pointer min-h-[240px] group"
+             onClick={onNavigateToCreate}
+          >
+            <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-full mb-4 group-hover:bg-stone-100 dark:group-hover:bg-stone-700 transition-colors">
+              <Plus size={32} />
+            </div>
+            <span className="font-medium font-serif text-lg">{t('dashboard.newProject')}</span>
+          </div>
+
+          {filteredProjects.map(project => {
+            const nodeWordCount = (project.nodes || []).reduce((acc, n) => {
+              const text = (n.content || '').replace(/<[^>]*>/g, ' ').trim();
+              return acc + (text ? text.split(/\s+/).length : 0);
+            }, 0);
+
+            return (
+              <div 
+                key={project.id}
+                onClick={() => onSelectProject(project)}
+                className="group bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-sm hover:shadow-md hover:border-stone-300 dark:hover:border-stone-600 transition-all cursor-pointer flex flex-col min-h-[240px] relative overflow-hidden"
+              >
+                <div 
+                  className="absolute top-0 left-0 w-1 h-full transition-all" 
+                  style={{ backgroundColor: project.projectColor || '#78716c' }}
+                />
+                
+                <div className="flex-1">
+                  <div className="flex justify-between items-start mb-2">
+                     <div className="flex items-center space-x-1.5">
+                       {project.coreTheme && (
+                         <span className="text-[10px] uppercase tracking-widest font-bold text-stone-400 dark:text-stone-500">
+                           {project.coreTheme}
+                         </span>
+                       )}
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       {project.targetWordCount > 0 && (
+                         <span className="text-[10px] bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-500 dark:text-stone-400 font-mono">
+                           {t('dashboard.target')}: {(project.targetWordCount/1000).toFixed(0)}k
+                         </span>
+                       )}
+                       <button
+                         onClick={(e) => handleDeleteProject(e, project.id, project.title)}
+                         className="p-1 text-stone-300 hover:text-red-600 dark:text-stone-600 dark:hover:text-red-400 rounded transition-colors"
+                         title="從書架刪除作品"
+                       >
+                         <Trash2 size={14} />
+                       </button>
+                     </div>
+                  </div>
+                  
+                  <h3 className="font-serif font-bold text-2xl text-stone-800 dark:text-stone-100 mb-2 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors leading-tight">
+                    {project.title}
+                  </h3>
+                  
+                  <p className="text-stone-400 dark:text-stone-500 text-sm line-clamp-3 font-serif italic mb-4">
+                    {project.synopsis || "尚無摘要簡介..."}
+                  </p>
+
+                  {project.projectTags && project.projectTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {project.projectTags.map(tag => (
+                        <span key={tag} className="text-[10px] px-2 py-0.5 bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 rounded border border-amber-200 dark:border-amber-900 flex items-center">
+                          <Tag size={9} className="mr-1 opacity-70" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800 flex justify-between items-center text-xs text-stone-500 dark:text-stone-500">
+                  <div className="flex items-center">
+                    <Book size={14} className="mr-1.5" />
+                    <span>{nodeWordCount.toLocaleString()} {t('dashboard.words')}</span>
+                  </div>
+                  <span>{new Date(project.lastModified).toLocaleDateString()}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
