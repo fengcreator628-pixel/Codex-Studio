@@ -144,6 +144,10 @@ export const Editor: React.FC<EditorProps> = ({
   const [focusMode, setFocusMode] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(false);
 
+  const [isReferenceSplitOpen, setIsReferenceSplitOpen] = useState(false);
+  const [selectedReferenceNodeId, setSelectedReferenceNodeId] = useState<string | null>(null);
+  const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
+
   // Hourly Auto Snapshot Trigger
   useEffect(() => {
     // Take an initial auto snapshot on load if project has nodes
@@ -962,6 +966,19 @@ export const Editor: React.FC<EditorProps> = ({
                 <Target size={16} className="text-amber-600 dark:text-amber-400" />
               </button>
 
+              {/* Split-Screen Reference Panel Button */}
+              <button
+                onClick={() => setIsReferenceSplitOpen(!isReferenceSplitOpen)}
+                className={`p-2 rounded-lg border transition-colors ${
+                  isReferenceSplitOpen 
+                    ? 'bg-amber-600 text-white border-amber-600 hover:bg-amber-700' 
+                    : 'border-amber-200 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100'
+                }`}
+                title="對照閱讀：開啟/關閉雙視窗寫作參照"
+              >
+                <Layers size={16} className={isReferenceSplitOpen ? 'text-white' : 'text-amber-600 dark:text-amber-400'} />
+              </button>
+
               {/* View Switcher Segmented Control (Icons with tooltips) */}
               <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-1 rounded-lg border border-stone-200 dark:border-stone-700 space-x-0.5">
                 <button
@@ -1119,6 +1136,163 @@ export const Editor: React.FC<EditorProps> = ({
                         lastActivityTime.current = Date.now();
                     }}
                 />
+            ) : isReferenceSplitOpen ? (
+                <div className="flex flex-col md:flex-row h-full w-full bg-stone-100 dark:bg-stone-950/20 divide-y md:divide-y-0 md:divide-x divide-stone-200 dark:divide-stone-800">
+                  {/* Left Side: Main Writer */}
+                  <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar bg-white dark:bg-stone-900">
+                    <div className="max-w-2xl mx-auto">
+                      {!activeNode ? (
+                          <div className="flex flex-col items-center justify-center h-64 text-stone-400">
+                              <p className="font-serif italic text-lg">請在左側「目錄與書架」選擇或新增章節文件以開始創作。</p>
+                          </div>
+                      ) : mode === 'author' ? (
+                          <div
+                          ref={editorRef}
+                          contentEditable
+                          spellCheck={spellcheckEnabled}
+                          style={{ fontFamily }}
+                          suppressContentEditableWarning
+                          onInput={handleInput}
+                          onKeyDown={handleKeyDown}
+                          onClick={typewriterMode ? handleTypewriterScroll : undefined}
+                          onKeyUp={typewriterMode ? handleTypewriterScroll : undefined}
+                          onBlur={() => setSuggestion(null)}
+                          className={`w-full h-full min-h-[60vh] outline-none text-lg leading-loose text-stone-800 dark:text-stone-200 empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300 dark:empty:before:text-stone-600 ${typewriterMode ? 'py-[35vh]' : ''}`}
+                          data-placeholder={t('editor.placeholder')}
+                          />
+                      ) : (
+                          <div className="relative">
+                              {selectionRange && (
+                                  <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg shadow-xl px-4 py-3 flex items-center space-x-4 animate-in fade-in slide-in-from-bottom-4">
+                                      <span className="text-xs text-stone-400 dark:text-stone-500 font-mono">
+                                          {selectionRange.text.replace(/<[^>]*>/g, '').substring(0, 20)}...
+                                      </span>
+                                      <button 
+                                          onClick={handleProposeDeletion}
+                                          className="flex items-center text-sm bg-rose-600 hover:bg-rose-500 px-3 py-1.5 rounded transition-colors text-white"
+                                      >
+                                          <Trash2 size={14} className="mr-2" />
+                                          {t('editor.review.delete')}
+                                      </button>
+                                      <button onClick={() => setSelectionRange(null)} className="text-stone-500 hover:text-white dark:hover:text-stone-900"><X size={16}/></button>
+                                  </div>
+                              )}
+                              <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-stone-800 p-4 rounded-lg flex items-center space-x-2">
+                                  <span className="text-xs font-bold text-blue-800 dark:text-blue-200 uppercase tracking-wider">{t('editor.review.notice.title')}</span>
+                                  <span className="text-xs text-blue-600 dark:text-blue-300">{t('editor.review.notice.desc')}</span>
+                              </div>
+                              {renderReviewContent()}
+                              <div className="mt-8 pt-8 border-t border-stone-100 dark:border-stone-800">
+                                  <label className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2 block">{t('editor.review.append')}</label>
+                                  <div className="flex space-x-2">
+                                      <input 
+                                          type="text" 
+                                          value={insertionText}
+                                          onChange={(e) => setInsertionText(e.target.value)}
+                                          onKeyDown={(e) => e.key === 'Enter' && handleProposeInsertion()}
+                                          className="flex-1 border border-stone-200 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200 rounded p-2 text-sm focus:outline-none focus:border-stone-400"
+                                          placeholder="..."
+                                      />
+                                      <button onClick={handleProposeInsertion} className="bg-stone-800 dark:bg-stone-700 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 dark:hover:bg-stone-600">{t('editor.review.insert')}</button>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Side: References Split Viewer */}
+                  <div className="w-full md:w-5/12 flex flex-col bg-stone-50 dark:bg-stone-900/30 overflow-hidden h-[50vh] md:h-auto">
+                    {/* Header */}
+                    <div className="p-4 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-white dark:bg-stone-950/40 flex-shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <BookOpen size={16} className="text-amber-600 dark:text-amber-400" />
+                        <span className="text-xs font-bold text-stone-700 dark:text-stone-300 tracking-wide">對照閱讀 & 參考資料</span>
+                      </div>
+                      <button 
+                        onClick={() => setIsReferenceSplitOpen(false)}
+                        className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 p-1 rounded hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
+                        title="關閉對照視窗"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    {/* Selector & Search bar */}
+                    <div className="p-3 border-b border-stone-200 dark:border-stone-800 flex flex-col gap-2 bg-stone-50/50 dark:bg-stone-900/50 flex-shrink-0">
+                      <select
+                        value={selectedReferenceNodeId || ''}
+                        onChange={(e) => setSelectedReferenceNodeId(e.target.value || null)}
+                        className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded px-2.5 py-2 text-xs text-stone-700 dark:text-stone-300 focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="">-- 選擇要參考的項目 (文獻/設定/筆記) --</option>
+                        {localProject.nodes?.filter(n => n.type !== 'folder' && n.id !== activeNodeId).map(node => (
+                          <option key={node.id} value={node.id}>
+                            [{node.type === 'reference' ? '文獻' : node.type === 'note' ? '靈感' : node.type === 'character' ? '角色' : node.type === 'location' ? '場景' : node.type === 'item' ? '道具' : node.type === 'lore' ? '世界觀' : node.type === 'faction' ? '陣營' : '手稿'}] {node.title}
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedReferenceNodeId && (
+                        <div className="relative">
+                          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                          <input
+                            type="text"
+                            placeholder="輸入關鍵字在文獻中檢候高亮..."
+                            value={referenceSearchQuery}
+                            onChange={(e) => setReferenceSearchQuery(e.target.value)}
+                            className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded pl-8 pr-8 py-1.5 text-xs text-stone-700 dark:text-stone-300 focus:outline-none focus:border-amber-500"
+                          />
+                          {referenceSearchQuery && (
+                            <button
+                              onClick={() => setReferenceSearchQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-white dark:bg-stone-950/20 select-text">
+                      {selectedReferenceNodeId ? (() => {
+                        const refNode = localProject.nodes?.find(n => n.id === selectedReferenceNodeId);
+                        if (!refNode) return <p className="text-xs text-stone-400 italic">找不到參考內容...</p>;
+                        
+                        const rawText = refNode.content || '';
+                        
+                        if (referenceSearchQuery) {
+                          const regex = new RegExp(`(${referenceSearchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+                          const parts = rawText.split(regex);
+                          return (
+                            <div className="text-sm leading-relaxed text-stone-700 dark:text-stone-300 font-sans whitespace-pre-wrap">
+                              <h3 className="font-bold text-stone-900 dark:text-stone-100 text-base mb-3 border-b border-stone-100 dark:border-stone-800 pb-1">{refNode.title}</h3>
+                              {parts.map((part, i) => 
+                                regex.test(part) 
+                                  ? <mark key={i} className="bg-amber-200 dark:bg-amber-800/60 text-stone-900 dark:text-stone-100 font-medium px-0.5 rounded-sm">{part}</mark>
+                                  : part
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="text-sm leading-relaxed text-stone-700 dark:text-stone-300 font-sans whitespace-pre-wrap">
+                            <h3 className="font-bold text-stone-900 dark:text-stone-100 text-base mb-3 border-b border-stone-100 dark:border-stone-800 pb-1">{refNode.title}</h3>
+                            {rawText || <p className="text-xs text-stone-400 italic">當前參考資料無內容。</p>}
+                          </div>
+                        );
+                      })() : (
+                        <div className="flex flex-col items-center justify-center h-full text-stone-400 p-6 text-center">
+                          <BookOpen size={32} className="text-stone-300 dark:text-stone-700 mb-2" />
+                          <p className="text-xs font-serif italic">請選擇一項參考文獻、Wiki設定卡或筆記，即可開啟雙視窗對照閱讀與全文搜尋高亮。</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
             ) : (
                 <div className="max-w-3xl mx-auto py-12 px-12 min-h-[calc(100vh-8rem)] bg-white dark:bg-stone-900 shadow-sm my-8 border border-stone-200 dark:border-stone-800 transition-colors duration-300">
                 {!activeNode ? (

@@ -1,4 +1,4 @@
-export type NodeType = 'folder' | 'document' | 'note' | 'character' | 'location' | 'item' | 'lore' | 'faction' | 'whiteboard';
+export type NodeType = 'folder' | 'document' | 'note' | 'character' | 'location' | 'item' | 'lore' | 'faction' | 'whiteboard' | 'reference';
 
 export type SceneStatus = 'idea' | 'draft' | 'revised' | 'final';
 

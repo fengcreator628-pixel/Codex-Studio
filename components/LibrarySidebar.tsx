@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Project, FileSystemNode, NodeType } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import { buildTree, createNode, deleteNode, moveNode } from '../services/fileSystem';
 import { PomodoroSprintTimer } from './PomodoroSprintTimer';
 import { 
   Folder, FileText, StickyNote, User, MapPin, Package, Compass, Flag,
-  ChevronRight, ChevronDown, Plus, Trash2, Edit2, Network, Timer, Sidebar
+  ChevronRight, ChevronDown, Plus, Trash2, Edit2, Network, Timer, Sidebar,
+  BookOpen, Upload
 } from 'lucide-react';
 
 interface LibrarySidebarProps {
@@ -32,7 +33,53 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showTimer, setShowTimer] = useState(true);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // --- Actions ---
+
+  const importFiles = (files: FileList) => {
+    let updatedProject = { ...project };
+    let firstNewNode: FileSystemNode | null = null;
+
+    let parentId: string | null = null;
+    const activeNode = project.nodes?.find(n => n.id === activeNodeId);
+    if (activeNode) {
+      if (activeNode.type === 'folder') parentId = activeNode.id;
+      else parentId = activeNode.parentId;
+    }
+
+    const promises = Array.from(files).map(file => {
+      return new Promise<void>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const content = event.target?.result as string || '';
+          const title = file.name.replace(/\.[^/.]+$/, "");
+          
+          const { project: nextProject, newNode } = createNode(updatedProject, 'reference', title, parentId);
+          newNode.content = content;
+          updatedProject = nextProject;
+          if (!firstNewNode) firstNewNode = newNode;
+          resolve();
+        };
+        reader.readAsText(file);
+      });
+    });
+
+    Promise.all(promises).then(() => {
+      onUpdateProject(updatedProject);
+      if (firstNewNode) {
+        onSelectNode(firstNewNode);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    });
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      importFiles(files);
+    }
+  };
 
   const handleCreate = (type: NodeType) => {
     setShowAddMenu(false);
@@ -53,7 +100,8 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
       item: '新寶物道具',
       lore: '新世界法則',
       faction: '新陣營組織',
-      whiteboard: '新心智白板'
+      whiteboard: '新心智白板',
+      reference: '新參考文獻與資料'
     };
 
     const { project: updatedProject, newNode } = createNode(project, type, titles[type] || 'Untitled', parentId);
@@ -150,6 +198,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
           case 'lore': return Compass;
           case 'faction': return Flag;
           case 'whiteboard': return Network;
+          case 'reference': return BookOpen;
           default: return FileText;
       }
   };
@@ -291,19 +340,43 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
                    <button onClick={() => handleCreate('faction')} className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2"><Flag size={13} className="text-amber-600"/> 陣營組織卡 (Wiki)</button>
                    <button onClick={() => handleCreate('note')} className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2"><StickyNote size={13}/> 靈感隨手筆記</button>
                    <button onClick={() => handleCreate('whiteboard')} className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2"><Network size={13}/> 心智網絡白板</button>
+                    <div className="border-t border-stone-100 dark:border-stone-800 my-1"></div>
+                    <button onClick={() => handleCreate('reference')} className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2"><BookOpen size={13} className="text-amber-600"/> 新增參考文獻與資料</button>
+                    <button onClick={() => { setShowAddMenu(false); fileInputRef.current?.click(); }} className="w-full text-left px-3 py-1.5 bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2 font-bold"><Upload size={13}/> 匯入外部文件 (.txt/.md)</button>
                  </div>
                )}
              </div>
          </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+      <div 
+        className="flex-1 overflow-y-auto py-2 custom-scrollbar"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault();
+          }
+        }}
+        onDrop={(e) => {
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            e.preventDefault();
+            importFiles(e.dataTransfer.files);
+          }
+        }}
+      >
           {rootNodes.length > 0 ? renderTree(rootNodes) : (
              <div className="text-center mt-10 text-stone-400 text-xs italic p-4">
                 點擊上方按鈕建立您的第一章手稿或角色卡片。
              </div>
           )}
       </div>
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept=".txt,.md,.json" 
+        multiple 
+        onChange={handleImportFile} 
+      />
 
       {/* Pomodoro Writing Sprint Timer Widget */}
       <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-white/50 dark:bg-stone-950/40">
