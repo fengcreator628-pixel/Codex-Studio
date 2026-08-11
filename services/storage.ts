@@ -37,7 +37,8 @@ export const createProject = (
   targetWordCount: number = 0, 
   synopsis: string = '', 
   projectColor: string = '#78716c', 
-  projectTags: string[] = []
+  projectTags: string[] = [],
+  projectType: string = 'novel'
 ): Project => {
   const newProject: Project = {
     id: crypto.randomUUID(),
@@ -46,6 +47,7 @@ export const createProject = (
     createdAt: Date.now(),
     lastModified: Date.now(),
     coreTheme,
+    projectType,
     targetWordCount,
     dailyTargetWordCount: 500,
     synopsis,

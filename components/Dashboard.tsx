@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Project, WritingStreak } from '../types';
-import { Book, Plus, Flame, Clock, BarChart2, Moon, Sun, Tag, Filter, Trash2 } from 'lucide-react';
+import { Book, Plus, Flame, Clock, BarChart2, Moon, Sun, Tag, Filter, Trash2, BookOpen, FileText, Award, Film, Briefcase, Layers } from 'lucide-react';
 import { calculateStreak } from '../services/streak';
 import { useSettings } from '../contexts/SettingsContext';
 import { deleteProject, getSessions } from '../services/storage';
@@ -14,19 +14,31 @@ interface DashboardProps {
   onNavigateToStreak: () => void;
 }
 
+const PROJECT_TYPE_INFO: Record<string, { name: string; icon: any; colorClass: string; bgClass: string }> = {
+  novel: { name: '小說創作', icon: BookOpen, colorClass: 'text-blue-700 dark:text-blue-300 border-blue-200/40 dark:border-blue-900/40', bgClass: 'bg-blue-50 dark:bg-blue-950/40' },
+  prose: { name: '散文隨筆', icon: FileText, colorClass: 'text-emerald-700 dark:text-emerald-300 border-emerald-200/40 dark:border-emerald-900/40', bgClass: 'bg-emerald-50 dark:bg-emerald-950/40' },
+  academic: { name: '學術論文', icon: Award, colorClass: 'text-indigo-700 dark:text-indigo-300 border-indigo-200/40 dark:border-indigo-900/40', bgClass: 'bg-indigo-50 dark:bg-indigo-950/40' },
+  screenplay: { name: '劇本創作', icon: Film, colorClass: 'text-rose-700 dark:text-rose-300 border-rose-200/40 dark:border-rose-900/40', bgClass: 'bg-rose-50 dark:bg-rose-950/40' },
+  planning: { name: '企劃報告', icon: Briefcase, colorClass: 'text-amber-700 dark:text-amber-300 border-amber-200/40 dark:border-amber-900/40', bgClass: 'bg-amber-50 dark:bg-amber-950/40' },
+  other: { name: '其他類型', icon: Layers, colorClass: 'text-stone-700 dark:text-stone-300 border-stone-200/40 dark:border-stone-800/40', bgClass: 'bg-stone-50 dark:bg-stone-900/40' }
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject, onRefresh, onNavigateToCreate, onNavigateToStreak }) => {
   const streakInfo: WritingStreak = calculateStreak();
   const { theme, toggleTheme, lang, toggleLang, t } = useSettings();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
   // Collect all unique tags across all projects
   const allTags = Array.from(
     new Set(projects.flatMap(p => p.projectTags || []))
   ).filter(Boolean);
 
-  const filteredProjects = selectedTag
-    ? projects.filter(p => p.projectTags && p.projectTags.includes(selectedTag))
-    : projects;
+  const filteredProjects = projects.filter(p => {
+    const matchesTag = !selectedTag || (p.projectTags && p.projectTags.includes(selectedTag));
+    const matchesType = !selectedType || (p.projectType === selectedType || (!p.projectType && selectedType === 'novel'));
+    return matchesTag && matchesType;
+  });
 
   const todayStr = new Date().toISOString().split('T')[0];
   const sessions = getSessions();
@@ -108,39 +120,82 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
           </div>
         </header>
 
-        {/* Tag Filter Bar */}
-        {allTags.length > 0 && (
-          <div className="mb-8 flex items-center space-x-2 flex-wrap gap-y-2 bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800">
+        {/* Filters Section */}
+        <div className="mb-8 space-y-3">
+          {/* Project Type Filter Row */}
+          <div className="flex items-center space-x-2 flex-wrap gap-y-2 bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs">
             <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider flex items-center mr-2">
-              <Filter size={14} className="mr-1.5" />
-              {t('dashboard.filterTag')}:
+              <BookOpen size={14} className="mr-1.5 text-amber-600 dark:text-amber-500" />
+              專案類型過濾:
             </span>
             <button
-              onClick={() => setSelectedTag(null)}
-              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-                selectedTag === null
-                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 font-bold'
-                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200'
+              onClick={() => setSelectedType(null)}
+              className={`text-xs px-3 py-1 rounded-lg font-medium transition-all ${
+                selectedType === null
+                  ? 'bg-amber-500 text-white font-bold shadow-xs'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
               }`}
             >
-              {t('dashboard.allTags')} ({projects.length})
+              全部類型 ({projects.length})
             </button>
-            {allTags.map(tag => (
+            {Object.entries(PROJECT_TYPE_INFO).map(([typeId, info]) => {
+              const Icon = info.icon;
+              const count = projects.filter(p => p.projectType === typeId || (!p.projectType && typeId === 'novel')).length;
+              if (count === 0) return null; // Only show active types
+              return (
+                <button
+                  key={typeId}
+                  onClick={() => setSelectedType(typeId)}
+                  className={`text-xs px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                    selectedType === typeId
+                      ? 'bg-amber-500 text-white font-bold shadow-xs'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
+                  }`}
+                >
+                  <Icon size={12} />
+                  <span>{info.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedType === typeId ? 'bg-amber-600 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tag Filter Bar */}
+          {allTags.length > 0 && (
+            <div className="flex items-center space-x-2 flex-wrap gap-y-2 bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xs">
+              <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider flex items-center mr-2">
+                <Tag size={14} className="mr-1.5 text-amber-600 dark:text-amber-500" />
+                {t('dashboard.filterTag')}:
+              </span>
               <button
-                key={tag}
-                onClick={() => setSelectedTag(tag)}
-                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors flex items-center ${
-                  selectedTag === tag
-                    ? 'bg-amber-500 text-white font-bold shadow-sm'
+                onClick={() => setSelectedTag(null)}
+                className={`text-xs px-3 py-1 rounded-lg font-medium transition-all ${
+                  selectedTag === null
+                    ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 font-bold'
                     : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
                 }`}
               >
-                <Tag size={11} className="mr-1" />
-                {tag}
+                {t('dashboard.allTags')} ({projects.length})
               </button>
-            ))}
-          </div>
-        )}
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(tag)}
+                  className={`text-xs px-3 py-1 rounded-lg font-medium transition-all flex items-center ${
+                    selectedTag === tag
+                      ? 'bg-amber-500 text-white font-bold shadow-sm'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
+                  }`}
+                >
+                  <Tag size={11} className="mr-1" />
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* New Project Card */}
@@ -160,6 +215,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
               return acc + countWords(n.content || '');
             }, 0);
 
+            const typeInfo = PROJECT_TYPE_INFO[project.projectType || 'novel'] || PROJECT_TYPE_INFO.novel;
+            const TypeIcon = typeInfo.icon;
+
             return (
               <div 
                 key={project.id}
@@ -173,14 +231,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
                 
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
-                     <div className="flex items-center space-x-1.5">
+                     <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                       {/* Project Type Badge */}
+                       <span className={`text-[9px] px-2 py-0.5 rounded-full border flex items-center gap-1 font-sans font-bold uppercase tracking-wider ${typeInfo.bgClass} ${typeInfo.colorClass}`}>
+                         <TypeIcon size={9} />
+                         {typeInfo.name}
+                       </span>
                        {project.coreTheme && (
                          <span className="text-[10px] uppercase tracking-widest font-bold text-stone-400 dark:text-stone-500">
                            {project.coreTheme}
                          </span>
                        )}
                      </div>
-                     <div className="flex items-center space-x-2">
+                     <div className="flex items-center space-x-2 flex-shrink-0">
                        {project.targetWordCount > 0 && (
                          <span className="text-[10px] bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-500 dark:text-stone-400 font-mono">
                            {t('dashboard.target')}: {(project.targetWordCount/1000).toFixed(0)}k

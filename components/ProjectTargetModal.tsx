@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Project } from '../types';
-import { Target, Calendar, Award, Tag, Sparkles, X, Check, FileText } from 'lucide-react';
+import { Target, Calendar, Award, Tag, Sparkles, X, Check, FileText, BookOpen, Film, Briefcase, Layers } from 'lucide-react';
 
 interface ProjectTargetModalProps {
   project: Project;
@@ -17,6 +17,7 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
 }) => {
   const [title, setTitle] = useState(project.title);
   const [coreTheme, setCoreTheme] = useState(project.coreTheme || '');
+  const [projectType, setProjectType] = useState(project.projectType || 'novel');
   const [targetWordCount, setTargetWordCount] = useState<number>(project.targetWordCount || 50000);
   const [dailyTargetWordCount, setDailyTargetWordCount] = useState<number>(project.dailyTargetWordCount || 500);
   const [synopsis, setSynopsis] = useState(project.synopsis || '');
@@ -36,6 +37,7 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
       ...project,
       title: title.trim() || '未命名傑作',
       coreTheme,
+      projectType,
       targetWordCount: Number(targetWordCount) || 10000,
       dailyTargetWordCount: Number(dailyTargetWordCount) || 500,
       synopsis,
@@ -89,6 +91,32 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
               className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-lg text-sm text-stone-800 dark:text-stone-100 outline-none focus:border-amber-500 transition-colors"
               required
             />
+          </div>
+
+          {/* Project Type */}
+          <div>
+            <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1">
+              專案寫作類型
+            </label>
+            <div className="relative">
+              <select
+                value={projectType}
+                onChange={e => setProjectType(e.target.value)}
+                className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-lg text-sm text-stone-800 dark:text-stone-100 outline-none focus:border-amber-500 transition-colors appearance-none cursor-pointer font-sans"
+              >
+                <option value="novel">📚 小說創作 (章節手稿、世界觀與角色卡)</option>
+                <option value="prose">📝 散文隨筆 (隨筆、日常感想與主題篇章)</option>
+                <option value="academic">🎓 學術論文 (學術研究、大綱與專業文獻)</option>
+                <option value="screenplay">🎬 劇本創作 (對白分鏡、腳本與場景設定)</option>
+                <option value="planning">💼 企劃報告 (專案提案、策略規劃與結構)</option>
+                <option value="other">🎨 其他類型 (日常紀錄、混合創作自訂用途)</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-stone-500 dark:text-stone-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Word Count Goal & Daily Goal */}
