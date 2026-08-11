@@ -30,6 +30,7 @@ import { RichTextToolbar } from './RichTextToolbar';
 import { FindReplaceBar } from './FindReplaceBar';
 import { ShortcutSettingsModal } from './ShortcutSettingsModal';
 import { getShortcuts } from '../services/shortcuts';
+import { countWords, countChars } from '../utils/wordCount';
 
 interface EditorProps {
   project: Project;
@@ -137,6 +138,7 @@ export const Editor: React.FC<EditorProps> = ({
   const [showShortcutModal, setShowShortcutModal] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
+  const [showWorkshopMenu, setShowWorkshopMenu] = useState(false);
   const [fontFamily, setFontFamily] = useState('Noto Serif TC, Songti TC, serif');
   const [fontSize, setFontSize] = useState('3');
   const [focusMode, setFocusMode] = useState(false);
@@ -188,17 +190,11 @@ export const Editor: React.FC<EditorProps> = ({
 
   // Initialize Word Count helper
   const getWordCount = (html: string) => {
-    const tmp = document.createElement("DIV");
-    tmp.innerHTML = html || '';
-    const text = tmp.textContent || tmp.innerText || "";
-    return text.trim().length === 0 ? 0 : text.split(/\s+/).length;
+    return countWords(html);
   };
 
   const getCharCount = (html: string) => {
-    const tmp = document.createElement("DIV");
-    tmp.innerHTML = html || '';
-    const text = tmp.textContent || tmp.innerText || "";
-    return text.length;
+    return countChars(html);
   };
 
   const cleanContent = (html: string) => {
@@ -323,6 +319,11 @@ export const Editor: React.FC<EditorProps> = ({
   }, [localProject, activeNodeId]);
 
   // Session Tracking Loop
+  const contentRef = useRef(content);
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -331,7 +332,7 @@ export const Editor: React.FC<EditorProps> = ({
       }
       
       if (activeNode?.type === 'document' || activeNode?.type === 'note') {
-          const currentWords = getWordCount(content);
+          const currentWords = getWordCount(contentRef.current);
           const startWords = sessionStartContentLength.current;
           const wordsTypedToday = Math.max(0, currentWords - startWords); 
           
@@ -354,7 +355,7 @@ export const Editor: React.FC<EditorProps> = ({
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [content, project.id, activeNode?.type]);
+  }, [project.id, activeNode?.type]);
 
   // --- AI Suggestion Logic ---
   const fetchSuggestion = async (textContext: string) => {
@@ -635,7 +636,9 @@ export const Editor: React.FC<EditorProps> = ({
       }
       
       setActiveNodeId(node ? node.id : null);
-      if (centerView === 'corkboard') {
+      if (node && node.type === 'folder') {
+        setCenterView('corkboard');
+      } else {
         setCenterView('editor');
       }
   };
@@ -792,8 +795,8 @@ export const Editor: React.FC<EditorProps> = ({
 
   // Total project word count calculation
   const totalProjectWords = (localProject.nodes || []).reduce((acc, n) => {
-    const text = (n.content || '').replace(/<[^>]*>/g, ' ').trim();
-    return acc + (text ? text.split(/\s+/).length : 0);
+    if (n.type !== 'document') return acc;
+    return acc + countWords(n.content || '');
   }, 0);
 
   // --- Panels ---
@@ -805,31 +808,41 @@ export const Editor: React.FC<EditorProps> = ({
         onUpdateProject={handleUpdateProject}
         onSelectNode={handleSelectNode}
         currentWordCount={getWordCount(content)}
+        onClose={() => setLeftOpen(false)}
     />
   );
 
   const RightPanel = (
     <div className="h-full flex flex-col">
-      <div className="flex border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-1">
-        <button
-          onClick={() => setRightTab('inspector')}
-          className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
-            rightTab === 'inspector' 
-              ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200' 
-              : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
-          }`}
+      <div className="flex items-center border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-1 pr-2">
+        <div className="flex flex-1 space-x-1">
+          <button
+            onClick={() => setRightTab('inspector')}
+            className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
+              rightTab === 'inspector' 
+                ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200' 
+                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+            }`}
+          >
+            屬性設定與 Wiki
+          </button>
+          <button
+            onClick={() => setRightTab('revisions')}
+            className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
+              rightTab === 'revisions' 
+                ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200' 
+                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+            }`}
+          >
+            修訂提案 ({revisions.length})
+          </button>
+        </div>
+        <button 
+          onClick={() => setRightOpen(false)} 
+          className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded text-stone-500 ml-1" 
+          title="隱藏屬性側欄"
         >
-          Inspector & Codex
-        </button>
-        <button
-          onClick={() => setRightTab('revisions')}
-          className={`flex-1 py-1 text-xs font-semibold rounded transition-colors ${
-            rightTab === 'revisions' 
-              ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200' 
-              : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
-          }`}
-        >
-          Revisions ({revisions.length})
+          <PanelRight size={14} />
         </button>
       </div>
 
@@ -857,9 +870,6 @@ export const Editor: React.FC<EditorProps> = ({
         {/* Header */}
         <header className="h-16 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between px-6 flex-shrink-0 z-20 transition-colors duration-300">
             <div className="flex items-center space-x-4">
-            <button onClick={() => setLeftOpen(!leftOpen)} className={`p-2 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors ${leftOpen ? 'text-amber-600 dark:text-amber-500' : 'text-stone-400'}`} title={t('layout.toggleLeft')}>
-                <Sidebar size={20} />
-            </button>
             <div className="flex items-center space-x-3">
                 <button onClick={onBack} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full text-stone-500 dark:text-stone-400 transition-colors">
                     <ArrowLeft size={20} />
@@ -922,24 +932,6 @@ export const Editor: React.FC<EditorProps> = ({
                 </button>
               </div>
 
-              {/* Outline Structure Editor Trigger */}
-              <button
-                onClick={() => setShowOutlineModal(true)}
-                className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-                title="故事大綱與節奏架構編輯器"
-              >
-                <Layers size={16} className="text-amber-600 dark:text-amber-400" />
-              </button>
-
-              {/* Story Timeline Editor Trigger */}
-              <button
-                onClick={() => setShowTimelineModal(true)}
-                className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-                title="故事時間線與重大事件編輯器"
-              >
-                <Clock size={16} className="text-amber-600 dark:text-amber-400" />
-              </button>
-
               {/* Target & Goals Setting Button (Icon-only) */}
               <button
                 onClick={() => setShowTargetModal(true)}
@@ -994,56 +986,18 @@ export const Editor: React.FC<EditorProps> = ({
                 <button 
                   onClick={() => setMode('author')}
                   className={`p-1.5 rounded-md transition-all ${mode === 'author' ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-xs' : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'}`}
-                  title="撰寫模式 (Author Mode)"
+                  title="創作模式"
                 >
                   <PenTool size={16} />
                 </button>
                 <button 
                   onClick={() => setMode('review')}
                   className={`p-1.5 rounded-md transition-all ${mode === 'review' ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-xs' : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'}`}
-                  title="校對模式 (Review Mode)"
+                  title="修訂模式"
                 >
                   <Eye size={16} />
                 </button>
               </div>
-
-              {/* Shortcut Settings Button */}
-              <button
-                onClick={() => setShowShortcutModal(true)}
-                className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition-colors"
-                title="自訂全域快捷鍵設定"
-              >
-                <Keyboard size={16} />
-              </button>
-
-              {/* Typewriter Mode Toggle */}
-              <button
-                onClick={() => setTypewriterMode(prev => !prev)}
-                className={`p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors ${
-                  typewriterMode ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' : 'text-stone-500'
-                }`}
-                title="打字機模式 (垂直置中焦點)"
-              >
-                <Type size={16} />
-              </button>
-
-              {/* Focus Mode Trigger */}
-              <button
-                onClick={() => setFocusMode(true)}
-                className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition-colors"
-                title="進入專注寫作模式"
-              >
-                <Maximize2 size={16} />
-              </button>
-
-              {/* Save Button */}
-              <button
-                onClick={handleManualSave}
-                className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 transition-colors"
-                title="立即儲存 (Ctrl+S)"
-              >
-                <Save size={16} />
-              </button>
 
               {/* Export Trigger */}
               <button
@@ -1052,10 +1006,6 @@ export const Editor: React.FC<EditorProps> = ({
                 title="匯出稿件 (.docx, .md, .txt)"
               >
                 <Download size={16} />
-              </button>
-
-              <button onClick={() => setRightOpen(!rightOpen)} className={`p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors ml-1 ${rightOpen ? 'text-amber-600 dark:text-amber-500' : 'text-stone-400'}`} title={t('layout.toggleRight')}>
-                  <PanelRight size={18} />
               </button>
             </div>
         </header>
@@ -1137,6 +1087,7 @@ export const Editor: React.FC<EditorProps> = ({
                 project={localProject}
                 onSelectNode={handleSelectNode}
                 onUpdateProject={handleUpdateProject}
+                activeFolderId={activeNodeId}
               />
             ) : isWhiteboard ? (
                 <WhiteboardEditor 
@@ -1151,7 +1102,7 @@ export const Editor: React.FC<EditorProps> = ({
                 <div className="max-w-3xl mx-auto py-12 px-12 min-h-[calc(100vh-8rem)] bg-white dark:bg-stone-900 shadow-sm my-8 border border-stone-200 dark:border-stone-800 transition-colors duration-300">
                 {!activeNode ? (
                     <div className="flex flex-col items-center justify-center h-64 text-stone-400">
-                        <p className="font-serif italic text-lg">Select or create a document in the Library sidebar to begin.</p>
+                        <p className="font-serif italic text-lg">請在左側「目錄與書架」選擇或新增章節文件以開始創作。</p>
                     </div>
                 ) : mode === 'author' ? (
                     <div
@@ -1219,7 +1170,7 @@ export const Editor: React.FC<EditorProps> = ({
                   currentDocumentChars={getCharCount(content)}
                   sessionWords={sessionStats.words}
                   sessionTimeSeconds={sessionStats.time}
-                  targetWordCount={project.targetWordCount || 0}
+                  targetWordCount={localProject.targetWordCount || 0}
                   totalProjectWords={totalProjectWords}
                 />
 
@@ -1232,14 +1183,14 @@ export const Editor: React.FC<EditorProps> = ({
                 {suggestion && !isWhiteboard && (
                    <span className="ml-4 flex items-center text-amber-600 dark:text-amber-500 animate-pulse">
                       <Sparkles size={11} className="mr-1" />
-                      Press Tab to accept AI autocomplete
+                      按下 Tab 鍵採納 AI 續寫建議
                    </span>
                 )}
             </div>
             
             <div className={`flex items-center space-x-2 ${streakInfo.currentStreak > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-stone-400 dark:text-stone-600'}`}>
                 <Flame size={13} fill={streakInfo.currentStreak > 0 ? "currentColor" : "none"} />
-                <span>{t('editor.streak')}: {streakInfo.currentStreak} days</span>
+                <span>{t('editor.streak')}: {streakInfo.currentStreak} 天</span>
             </div>
         </footer>
     </div>

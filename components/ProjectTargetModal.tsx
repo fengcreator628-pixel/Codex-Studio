@@ -18,6 +18,7 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
   const [title, setTitle] = useState(project.title);
   const [coreTheme, setCoreTheme] = useState(project.coreTheme || '');
   const [targetWordCount, setTargetWordCount] = useState<number>(project.targetWordCount || 50000);
+  const [dailyTargetWordCount, setDailyTargetWordCount] = useState<number>(project.dailyTargetWordCount || 500);
   const [synopsis, setSynopsis] = useState(project.synopsis || '');
   const [projectColor, setProjectColor] = useState(project.projectColor || '#d97706');
   const [tagsInput, setTagsInput] = useState((project.projectTags || []).join(', '));
@@ -36,6 +37,7 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
       title: title.trim() || '未命名傑作',
       coreTheme,
       targetWordCount: Number(targetWordCount) || 10000,
+      dailyTargetWordCount: Number(dailyTargetWordCount) || 500,
       synopsis,
       projectColor,
       projectTags: tags,
@@ -77,7 +79,7 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
           {/* Title */}
           <div>
             <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1">
-              專案名稱 Project Title
+              專案名稱
             </label>
             <input
               type="text"
@@ -89,11 +91,11 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
             />
           </div>
 
-          {/* Word Count Goal & Theme */}
+          {/* Word Count Goal & Daily Goal */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Target size={13} className="text-amber-600" /> 目標長度 (字數)
+                <Target size={13} className="text-amber-600" /> 目標長度 (總字數)
               </label>
               <input
                 type="number"
@@ -111,7 +113,28 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Sparkles size={13} className="text-amber-600" /> 核心主題 Core Theme
+                <Award size={13} className="text-amber-600" /> 每日寫作目標 (字數/天)
+              </label>
+              <input
+                type="number"
+                min="50"
+                step="50"
+                value={dailyTargetWordCount}
+                onChange={e => setDailyTargetWordCount(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-lg text-sm text-stone-800 dark:text-stone-100 font-mono outline-none focus:border-amber-500"
+                required
+              />
+              <p className="text-[10px] text-stone-400 mt-1">
+                建議：維持良好習慣 300 ~ 1,000 字/天
+              </p>
+            </div>
+          </div>
+
+          {/* Theme & Tags */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Sparkles size={13} className="text-amber-600" /> 核心主題
               </label>
               <input
                 type="text"
@@ -121,10 +144,7 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
                 className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-lg text-sm text-stone-800 dark:text-stone-100 outline-none focus:border-amber-500"
               />
             </div>
-          </div>
 
-          {/* Color & Tags */}
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Tag size={13} className="text-amber-600" /> 專案標籤 (逗號分隔)
@@ -137,31 +157,32 @@ export const ProjectTargetModal: React.FC<ProjectTargetModalProps> = ({
                 className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 rounded-lg text-sm text-stone-800 dark:text-stone-100 outline-none focus:border-amber-500"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1">
-                專案辨識色彩
-              </label>
-              <div className="flex items-center space-x-2 pt-1">
-                {['#d97706', '#2563eb', '#059669', '#dc2626', '#7c3aed', '#db2777'].map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setProjectColor(c)}
-                    className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                      projectColor === c ? 'scale-110 border-stone-900 dark:border-white shadow-md' : 'border-transparent hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
+          {/* Color Selection */}
+          <div>
+            <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1">
+              專案辨識色彩
+            </label>
+            <div className="flex items-center space-x-2 pt-1">
+              {['#d97706', '#2563eb', '#059669', '#dc2626', '#7c3aed', '#db2777'].map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setProjectColor(c)}
+                  className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                    projectColor === c ? 'scale-110 border-stone-900 dark:border-white shadow-md' : 'border-transparent hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
             </div>
           </div>
 
           {/* Synopsis */}
           <div>
             <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <FileText size={13} className="text-amber-600" /> 故事大綱 / 企劃備忘 Synopsis
+              <FileText size={13} className="text-amber-600" /> 故事大綱 / 企劃備忘
             </label>
             <textarea
               value={synopsis}

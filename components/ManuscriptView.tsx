@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Project, FileSystemNode, Revision, SceneMetadata, SceneStatus } from '../types';
+import { countWords } from '../utils/wordCount';
 import {
   FileText, Folder, ArrowUp, ArrowDown, Plus, Eye, PenTool, Check, X,
   Download, BookOpen, Layers, CheckCircle2, ChevronRight, ChevronDown,
@@ -88,11 +89,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
 
   // Word & Reading Time helpers
   const getWordCount = (html: string) => {
-    const tmp = document.createElement('DIV');
-    tmp.innerHTML = html || '';
-    const text = (tmp.textContent || tmp.innerText || '').trim();
-    if (!text) return 0;
-    return text.length;
+    return countWords(html);
   };
 
   const getReadingTime = (words: number) => {

@@ -47,6 +47,7 @@ export const createProject = (
     lastModified: Date.now(),
     coreTheme,
     targetWordCount,
+    dailyTargetWordCount: 500,
     synopsis,
     projectColor,
     projectTags,

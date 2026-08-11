@@ -2,27 +2,41 @@ import React, { useState } from 'react';
 import { Project, FileSystemNode } from '../types';
 import { FileText, Folder, Grid, Table as TableIcon, Edit3, Trash2 } from 'lucide-react';
 import { htmlToPlainText } from '../services/export';
+import { countWords } from '../utils/wordCount';
 
 interface CorkboardViewProps {
   project: Project;
-  onSelectNode: (node: FileSystemNode) => void;
+  onSelectNode: (node: FileSystemNode | null) => void;
   onUpdateProject: (p: Project) => void;
+  activeFolderId?: string | null;
 }
 
 export const CorkboardView: React.FC<CorkboardViewProps> = ({
   project,
   onSelectNode,
-  onUpdateProject
+  onUpdateProject,
+  activeFolderId
 }) => {
   const [viewMode, setViewMode] = useState<'cards' | 'outliner'>('cards');
 
+  const activeFolder = activeFolderId ? (project.nodes || []).find(n => n.id === activeFolderId) : null;
+
+  // Filter nodes: if activeFolderId is set, show items whose parentId matches activeFolderId.
+  // Otherwise, show top-level nodes (where parentId is null).
   const nodes = (project.nodes || []).filter(
-    n => n.type === 'document' || n.type === 'folder' || n.type === 'note'
+    n => {
+      const isRightType = n.type === 'document' || n.type === 'folder' || n.type === 'note' || n.type === 'whiteboard';
+      if (!isRightType) return false;
+      if (activeFolderId) {
+        return n.parentId === activeFolderId;
+      } else {
+        return n.parentId === null;
+      }
+    }
   );
 
   const getWordCount = (content: string) => {
-    const text = htmlToPlainText(content || '');
-    return text.trim() ? text.trim().split(/\s+/).length : 0;
+    return countWords(content);
   };
 
   return (
@@ -30,42 +44,78 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
       {/* Header bar */}
       <div className="flex items-center justify-between pb-4 border-b border-stone-200 dark:border-stone-800 mb-6">
         <div>
-          <h2 className="font-serif font-bold text-xl text-stone-900 dark:text-stone-100">
-            Corkboard & Manuscript Outliner
+          <div className="flex items-center space-x-2 text-xs text-stone-500 dark:text-stone-400 mb-1">
+            <span>Manuscript</span>
+            <span>/</span>
+            <span className="font-semibold text-amber-700 dark:text-amber-400">
+              {activeFolder ? activeFolder.title : 'All Chapters'}
+            </span>
+          </div>
+          <h2 className="font-serif font-bold text-xl text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            {activeFolder ? (
+              <>
+                <Folder size={18} className="text-amber-600 animate-pulse" />
+                <span>{activeFolder.title} 的子項目管理</span>
+              </>
+            ) : (
+              <span>Corkboard & Manuscript Outliner</span>
+            )}
           </h2>
           <p className="text-xs text-stone-500 dark:text-stone-400">
-            Scrivener-style visual index cards and chapter overview
+            {activeFolder ? '檢視與調整當前資料夾下的所有場景卡片與子大綱' : 'Scrivener 風格視覺索引卡片與章節大綱總覽'}
           </p>
         </div>
 
-        <div className="flex items-center bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('cards')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'cards'
-                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
-                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
-            }`}
-          >
-            <Grid size={14} />
-            <span>Corkboard</span>
-          </button>
-          <button
-            onClick={() => setViewMode('outliner')}
-            className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'outliner'
-                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
-                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
-            }`}
-          >
-            <TableIcon size={14} />
-            <span>Outliner</span>
-          </button>
+        <div className="flex items-center space-x-3">
+          {activeFolder && (
+            <button
+              onClick={() => {
+                const parentNode = activeFolder.parentId ? (project.nodes || []).find(n => n.id === activeFolder.parentId) : null;
+                onSelectNode(parentNode || null);
+              }}
+              className="px-3 py-1 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-medium transition-colors border border-stone-200 dark:border-stone-700 cursor-pointer"
+            >
+              返回上層資料夾
+            </button>
+          )}
+
+          <div className="flex items-center bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+              }`}
+            >
+              <Grid size={14} />
+              <span>Corkboard</span>
+            </button>
+            <button
+              onClick={() => setViewMode('outliner')}
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
+                viewMode === 'outliner'
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+              }`}
+            >
+              <TableIcon size={14} />
+              <span>Outliner</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      {viewMode === 'cards' ? (
+      {nodes.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-20 bg-amber-50/20 dark:bg-stone-900/10 border-2 border-dashed border-stone-200 dark:border-stone-850 rounded-2xl p-6 text-center">
+          <Folder size={48} className="text-stone-300 dark:text-stone-700 mb-4" />
+          <h3 className="text-base font-serif font-bold text-stone-700 dark:text-stone-300 mb-1">空資料夾</h3>
+          <p className="text-xs text-stone-500 dark:text-stone-400 max-w-sm mb-4 leading-relaxed">
+            這個資料夾目前沒有子項目。您可以使用左側的書架側欄（Bookshelf）建立新章節，或拖曳其他章節進入本資料夾。
+          </p>
+        </div>
+      ) : viewMode === 'cards' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {nodes.map(node => {
             const wordCount = getWordCount(node.content);

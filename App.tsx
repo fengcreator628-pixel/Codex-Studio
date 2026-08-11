@@ -78,7 +78,7 @@ const AppContent: React.FC = () => {
       );
     case 'streak':
       return (
-        <StreakPage onBack={() => setView('dashboard')} />
+        <StreakPage projects={projects} onBack={() => setView('dashboard')} />
       );
     case 'editor':
       return currentProject ? (

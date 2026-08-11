@@ -5,7 +5,7 @@ import { buildTree, createNode, deleteNode, moveNode } from '../services/fileSys
 import { PomodoroSprintTimer } from './PomodoroSprintTimer';
 import { 
   Folder, FileText, StickyNote, User, MapPin, Package, Compass, Flag,
-  ChevronRight, ChevronDown, Plus, Trash2, Edit2, Network, Timer
+  ChevronRight, ChevronDown, Plus, Trash2, Edit2, Network, Timer, Sidebar
 } from 'lucide-react';
 
 interface LibrarySidebarProps {
@@ -14,6 +14,7 @@ interface LibrarySidebarProps {
   onUpdateProject: (project: Project) => void;
   onSelectNode: (node: FileSystemNode | null) => void;
   currentWordCount?: number;
+  onClose?: () => void;
 }
 
 export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({ 
@@ -22,6 +23,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   onUpdateProject, 
   onSelectNode,
   currentWordCount = 0,
+  onClose,
 }) => {
   const { t } = useSettings();
   const [dragOverInfo, setDragOverInfo] = useState<{ id: string, position: 'before' | 'after' | 'inside' } | null>(null);
@@ -236,7 +238,19 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   return (
     <div className="h-full flex flex-col bg-stone-50 dark:bg-stone-900 font-sans">
       <div className="p-3 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between flex-shrink-0 relative">
-         <span className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">{t('library.title')}</span>
+         <div className="flex items-center space-x-1.5">
+           {onClose && (
+             <button
+               type="button"
+               onClick={onClose}
+               className="p-1 hover:bg-stone-200 dark:hover:bg-stone-800 rounded text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
+               title="收合側欄"
+             >
+               <Sidebar size={14} />
+             </button>
+           )}
+           <span className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">{t('library.title')}</span>
+         </div>
          <div className="flex space-x-1 items-center">
              <button type="button" onClick={() => handleCreate('document')} className="p-1 hover:bg-stone-200 dark:hover:bg-stone-700 rounded text-stone-500" title={t('tree.add.document')}><FileText size={14}/></button>
              <button type="button" onClick={() => handleCreate('folder')} className="p-1 hover:bg-stone-200 dark:hover:bg-stone-700 rounded text-stone-500" title={t('tree.add.folder')}><Folder size={14}/></button>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, RotateCcw, Trash2, Clock, FileText } from 'lucide-react';
 import { OfflineDraft } from '../services/offline';
+import { countWords } from '../utils/wordCount';
 
 interface OfflineRecoveryModalProps {
   isOpen: boolean;
@@ -28,10 +29,7 @@ export const OfflineRecoveryModal: React.FC<OfflineRecoveryModalProps> = ({
   });
 
   const getWordCount = (html: string) => {
-    const tmp = document.createElement('DIV');
-    tmp.innerHTML = html || '';
-    const text = tmp.textContent || tmp.innerText || '';
-    return text.trim().length === 0 ? 0 : text.split(/\s+/).length;
+    return countWords(html);
   };
 
   const draftWords = getWordCount(draft.content);

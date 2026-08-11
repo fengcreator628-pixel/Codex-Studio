@@ -42,6 +42,7 @@ export interface Project {
   // New Fields
   coreTheme: string;
   targetWordCount: number;
+  dailyTargetWordCount?: number;
   synopsis: string;
   projectColor: string;
   projectTags: string[];

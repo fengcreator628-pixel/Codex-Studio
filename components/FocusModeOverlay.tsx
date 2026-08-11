@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Maximize2, Minimize2, Volume2, VolumeX, Music, Check, Sparkles, Feather } from 'lucide-react';
 import { soundEngine } from '../services/sound';
+import { countWords } from '../utils/wordCount';
 
 interface FocusModeProps {
   content: string;
@@ -31,8 +32,7 @@ export const FocusModeOverlay: React.FC<FocusModeProps> = ({
 
   // Update word count
   useEffect(() => {
-    const text = content.replace(/<[^>]*>/g, ' ').trim();
-    setWordCount(text ? text.split(/\s+/).length : 0);
+    setWordCount(countWords(content));
   }, [content]);
 
   // Handle ambient sound change

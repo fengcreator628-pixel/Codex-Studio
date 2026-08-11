@@ -3,8 +3,8 @@ import { Project, WritingStreak } from '../types';
 import { Book, Plus, Flame, Clock, BarChart2, Moon, Sun, Tag, Filter, Trash2 } from 'lucide-react';
 import { calculateStreak } from '../services/streak';
 import { useSettings } from '../contexts/SettingsContext';
-import { WritingTrendChart } from './WritingTrendChart';
-import { deleteProject } from '../services/storage';
+import { deleteProject, getSessions } from '../services/storage';
+import { countWords } from '../utils/wordCount';
 
 interface DashboardProps {
   projects: Project[];
@@ -27,6 +27,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
   const filteredProjects = selectedTag
     ? projects.filter(p => p.projectTags && p.projectTags.includes(selectedTag))
     : projects;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const sessions = getSessions();
+  
+  // Calculate word count written today for each project
+  const todayProjectWords = (projId: string) => {
+    return sessions
+      .filter(s => s.projectId === projId && s.date === todayStr)
+      .reduce((sum, s) => sum + Math.max(0, s.wordCountDelta), 0);
+  };
+
+  const getProjectWordCount = (proj: Project) => {
+    return (proj.nodes || []).reduce((acc, n) => {
+      return acc + countWords(n.content || '');
+    }, 0);
+  };
 
   const handleDeleteProject = (e: React.MouseEvent, projectId: string, title: string) => {
     e.stopPropagation();
@@ -51,17 +67,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
                 <button 
                   onClick={toggleTheme} 
                   className="p-2 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
-                  title="Toggle Theme"
+                  title="切換深淺色主題"
                 >
                   {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-                </button>
-                <div className="w-px h-4 bg-stone-200 dark:bg-stone-800 mx-1"></div>
-                <button 
-                  onClick={toggleLang}
-                  className="p-2 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 text-xs font-bold transition-colors w-10"
-                  title="Switch Language"
-                >
-                  {lang === 'en' ? 'EN' : '繁中'}
                 </button>
              </div>
 
@@ -99,9 +107,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
              </div>
           </div>
         </header>
-
-        {/* 7-Day Writing Trend Chart */}
-        <WritingTrendChart />
 
         {/* Tag Filter Bar */}
         {allTags.length > 0 && (
@@ -151,8 +156,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onSelectProject,
 
           {filteredProjects.map(project => {
             const nodeWordCount = (project.nodes || []).reduce((acc, n) => {
-              const text = (n.content || '').replace(/<[^>]*>/g, ' ').trim();
-              return acc + (text ? text.split(/\s+/).length : 0);
+              if (n.type !== 'document') return acc;
+              return acc + countWords(n.content || '');
             }, 0);
 
             return (
