@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project, Revision, WritingSession, FileSystemNode } from '../types';
-import { saveProject, saveSession, saveRevision, deleteRevision, createSnapshot } from '../services/storage';
+import { saveProject, saveSession, saveRevision, deleteRevision, createSnapshot, getSessions } from '../services/storage';
 import { calculateStreak, getTodaySessionStats, getLocalDateString } from '../services/streak';
 import { saveOfflineDraft, getOfflineDraft, clearOfflineDraft, OfflineDraft } from '../services/offline';
 import { 
@@ -93,7 +93,7 @@ export const Editor: React.FC<EditorProps> = ({
         const rootDoc: FileSystemNode = {
             id: crypto.randomUUID(),
             type: 'document',
-            title: 'Manuscript',
+            title: '第一章',
             content: project.content || '',
             parentId: null,
             order: 0,
@@ -339,7 +339,7 @@ export const Editor: React.FC<EditorProps> = ({
           const todayStr = getLocalDateString(new Date());
           if (wordsTypedToday > 0 || activeDuration.current >= 10) {
             const session: WritingSession = {
-              id: `session_${project.id}_${todayStr}`,
+              id: `session_${project.id}_${activeNodeId || 'default'}_${sessionStartTime.current}`,
               projectId: project.id,
               date: todayStr,
               startTime: sessionStartTime.current,
@@ -355,7 +355,28 @@ export const Editor: React.FC<EditorProps> = ({
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [project.id, activeNode?.type]);
+  }, [project.id, activeNode?.type, activeNodeId]);
+
+  // Real-time calculation of today's total written words across all documents
+  const getRealtimeTodayWords = () => {
+    const today = getLocalDateString(new Date());
+    const sessions = getSessions().filter(s => s.projectId === project.id && s.date === today);
+    const currentSessionId = `session_${project.id}_${activeNodeId || 'default'}_${sessionStartTime.current}`;
+    
+    // Sum of all other sessions today (excluding the currently active unsaved editor session)
+    const otherSessionsWords = sessions
+      .filter(s => s.id !== currentSessionId)
+      .reduce((acc, s) => acc + (s.wordCountDelta || 0), 0);
+      
+    // Calculate current editor session's real-time delta
+    const currentWords = getWordCount(content);
+    const startWords = sessionStartContentLength.current;
+    const currentSessionWordsDelta = Math.max(0, currentWords - startWords);
+    
+    return otherSessionsWords + currentSessionWordsDelta;
+  };
+
+  const realtimeTodayWords = getRealtimeTodayWords();
 
   // --- AI Suggestion Logic ---
   const fetchSuggestion = async (textContext: string) => {
@@ -636,7 +657,7 @@ export const Editor: React.FC<EditorProps> = ({
       }
       
       setActiveNodeId(node ? node.id : null);
-      if (node && node.type === 'folder') {
+      if (!node || node.type === 'folder') {
         setCenterView('corkboard');
       } else {
         setCenterView('editor');
@@ -1168,7 +1189,7 @@ export const Editor: React.FC<EditorProps> = ({
                 <WordCountProgress
                   currentDocumentWords={getWordCount(content)}
                   currentDocumentChars={getCharCount(content)}
-                  sessionWords={sessionStats.words}
+                  sessionWords={realtimeTodayWords}
                   sessionTimeSeconds={sessionStats.time}
                   targetWordCount={localProject.targetWordCount || 0}
                   totalProjectWords={totalProjectWords}
@@ -1176,8 +1197,8 @@ export const Editor: React.FC<EditorProps> = ({
 
                 <span className="text-stone-300 dark:text-stone-700">|</span>
 
-                <span className={sessionStats.words >= 50 ? 'text-emerald-600 dark:text-emerald-500 font-bold' : ''}>
-                {t('editor.today')}: +{sessionStats.words} {t('editor.words')}
+                <span className={realtimeTodayWords >= 50 ? 'text-emerald-600 dark:text-emerald-500 font-bold' : ''}>
+                {t('editor.today')}: +{realtimeTodayWords} {t('editor.words')}
                 </span>
 
                 {suggestion && !isWhiteboard && (

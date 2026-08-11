@@ -58,7 +58,7 @@ export const createProject = (
   const defaultDoc = {
     id: crypto.randomUUID(),
     type: 'document' as const,
-    title: 'Manuscript',
+    title: '第一章',
     content: '',
     parentId: null,
     order: 0,

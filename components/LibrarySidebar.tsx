@@ -212,7 +212,21 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
                               className="bg-white dark:bg-stone-900 border border-amber-500 rounded px-1 py-0.5 text-xs w-full focus:outline-none"
                           />
                       ) : (
-                          <span className="truncate flex-1 select-none">{node.title}</span>
+                          <div className="flex-1 min-w-0 flex items-center justify-between">
+                              <span className="truncate select-none mr-2">{node.title}</span>
+                              <div className="flex items-center space-x-1 flex-shrink-0 mr-1.5 opacity-90 group-hover:opacity-40 transition-opacity">
+                                  {node.metadata?.tags && node.metadata.tags.slice(0, 2).map((tag, i) => (
+                                      <span key={i} className="text-[9px] px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-200/40 dark:border-amber-900/40 rounded-sm font-sans font-normal scale-95 origin-right">
+                                          {tag}
+                                      </span>
+                                  ))}
+                                  {node.metadata?.targetWordCount ? (
+                                      <span className="text-[9px] text-stone-400 dark:text-stone-500 font-sans font-normal">
+                                          /{node.metadata.targetWordCount}字
+                                      </span>
+                                  ) : null}
+                              </div>
+                          </div>
                       )}
 
                       {/* Actions */}
@@ -284,6 +298,25 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
       </div>
       
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+          {/* 總稿卷宗 (根目錄) Clickable Node */}
+          <div 
+            onClick={() => onSelectNode(null)}
+            className={`
+                relative group flex items-center py-1.5 px-3 cursor-pointer transition-all text-sm rounded-md mx-2 mb-2 border
+                ${activeNodeId === null 
+                  ? 'bg-amber-100/80 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60 text-stone-900 dark:text-stone-100 font-bold shadow-xs' 
+                  : 'bg-white/80 dark:bg-stone-900/50 border-stone-200/60 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'}
+            `}
+          >
+              <span className="mr-2 p-0.5 rounded opacity-95 text-amber-600 dark:text-amber-500">
+                  <Folder size={14} className="fill-amber-100 dark:fill-amber-900/10" />
+              </span>
+              <span className="truncate flex-1">總稿卷宗 (根目錄)</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border border-stone-200/40 dark:border-stone-700/60 font-normal">
+                  corkboard
+              </span>
+          </div>
+
           {rootNodes.length > 0 ? renderTree(rootNodes) : (
              <div className="text-center mt-10 text-stone-400 text-xs italic p-4">
                 點擊上方按鈕建立您的第一章手稿或角色卡片。

@@ -9,6 +9,7 @@ export interface SceneMetadata {
   status?: SceneStatus;
   notes?: string;
   targetWordCount?: number;
+  tags?: string[];
 }
 
 export interface FileSystemNode {

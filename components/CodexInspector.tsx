@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Project, FileSystemNode, NodeType } from '../types';
-import { Sparkles, User, MapPin, StickyNote, FileText, Send, Plus, Search, Tag, Check, RefreshCw, Package, Compass, Flag } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Project, FileSystemNode, NodeType, SceneMetadata } from '../types';
+import { Sparkles, User, MapPin, StickyNote, FileText, Send, Plus, Search, Tag, Check, RefreshCw, Package, Compass, Flag, Target } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 
 interface CodexInspectorProps {
@@ -23,6 +23,24 @@ export const CodexInspector: React.FC<CodexInspectorProps> = ({
   // Notes tab state
   const [sceneNote, setSceneNote] = useState('');
   const [nodeStatus, setNodeStatus] = useState<'draft' | 'revised' | 'final'>('draft');
+  const [nodeTargetWordCount, setNodeTargetWordCount] = useState<number>(0);
+  const [nodeTags, setNodeTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState('');
+
+  // Sync activeNode metadata to state
+  useEffect(() => {
+    if (activeNode) {
+      setSceneNote(activeNode.metadata?.notes || '');
+      setNodeStatus((activeNode.metadata?.status as any) || 'draft');
+      setNodeTargetWordCount(activeNode.metadata?.targetWordCount || 0);
+      setNodeTags(activeNode.metadata?.tags || []);
+    } else {
+      setSceneNote('');
+      setNodeStatus('draft');
+      setNodeTargetWordCount(0);
+      setNodeTags([]);
+    }
+  }, [activeNode?.id]);
 
   // Codex tab state
   const [codexSearch, setCodexSearch] = useState('');
@@ -32,6 +50,62 @@ export const CodexInspector: React.FC<CodexInspectorProps> = ({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState('');
+
+  // Update helpers
+  const updateNodeMetadata = (updates: Partial<SceneMetadata>) => {
+    if (!activeNode) return;
+    const updatedNodes = project.nodes.map(n => {
+      if (n.id === activeNode.id) {
+        return {
+          ...n,
+          metadata: {
+            ...(n.metadata || {}),
+            ...updates
+          }
+        };
+      }
+      return n;
+    });
+    onUpdateProject({
+      ...project,
+      nodes: updatedNodes,
+      lastModified: Date.now()
+    });
+  };
+
+  const handleStatusChange = (status: 'draft' | 'revised' | 'final') => {
+    setNodeStatus(status);
+    updateNodeMetadata({ status });
+  };
+
+  const handleNoteChange = (val: string) => {
+    setSceneNote(val);
+    updateNodeMetadata({ notes: val });
+  };
+
+  const handleTargetWordCountChange = (val: number) => {
+    setNodeTargetWordCount(val);
+    updateNodeMetadata({ targetWordCount: val });
+  };
+
+  const handleAddTag = () => {
+    if (!newTagInput.trim()) return;
+    const cleanTag = newTagInput.trim();
+    if (nodeTags.includes(cleanTag)) {
+      setNewTagInput('');
+      return;
+    }
+    const nextTags = [...nodeTags, cleanTag];
+    setNodeTags(nextTags);
+    updateNodeMetadata({ tags: nextTags });
+    setNewTagInput('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    const nextTags = nodeTags.filter(t => t !== tagToRemove);
+    setNodeTags(nextTags);
+    updateNodeMetadata({ tags: nextTags });
+  };
 
   // Extract all codex items from project nodes
   const wikiTypes: NodeType[] = ['character', 'location', 'item', 'lore', 'faction', 'note'];
@@ -142,59 +216,146 @@ export const CodexInspector: React.FC<CodexInspectorProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {tab === 'notes' && (
           <div className="space-y-4">
-            {/* Node Metadata */}
-            <div>
-              <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1">
-                當前編輯文件
-              </label>
-              <div className="p-3 bg-white dark:bg-stone-800/50 rounded-lg border border-stone-200 dark:border-stone-800">
-                <span className="font-serif text-sm font-bold text-stone-800 dark:text-stone-100 block">
-                  {activeNode ? activeNode.title : project.title}
-                </span>
-                <span className="text-[10px] text-stone-400 dark:text-stone-500">
-                  類型: {activeNode ? activeNode.type : 'Project Root'}
-                </span>
+            {!activeNode ? (
+              <div className="p-4 text-center text-stone-400 dark:text-stone-500 bg-white dark:bg-stone-850/30 rounded-lg border border-stone-200/60 dark:border-stone-800/60 space-y-3">
+                <FileText size={24} className="mx-auto text-stone-300 dark:text-stone-700" />
+                <p className="text-xs font-serif leading-relaxed">請在左側目錄選擇或新增章節文件，以開始設定其專屬目標、草稿狀態與標籤。</p>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Node Metadata */}
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1">
+                    當前編輯文件
+                  </label>
+                  <div className="p-3 bg-white dark:bg-stone-800/50 rounded-lg border border-stone-200 dark:border-stone-800">
+                    <span className="font-serif text-sm font-bold text-stone-800 dark:text-stone-100 block">
+                      {activeNode.title}
+                    </span>
+                    <span className="text-[10px] text-stone-400 dark:text-stone-500">
+                      類型: {activeNode.type === 'document' ? '章節手稿' : activeNode.type === 'note' ? '靈感筆記' : activeNode.type}
+                    </span>
+                  </div>
+                </div>
 
-            {/* Document Status */}
-            <div>
-              <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1">
-                草稿狀態標籤
-              </label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { id: 'draft', label: '初稿 Draft' },
-                  { id: 'revised', label: '二修 Revised' },
-                  { id: 'final', label: '定稿 Final' }
-                ].map(st => (
-                  <button
-                    key={st.id}
-                    onClick={() => setNodeStatus(st.id as any)}
-                    className={`py-1.5 rounded border text-[11px] font-medium transition-all ${
-                      nodeStatus === st.id
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 font-bold'
-                        : 'border-stone-200 dark:border-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+                {/* Single Document Target Word Count */}
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                    <Target size={11} className="text-amber-600 dark:text-amber-500" /> 單篇寫作字數目標 (字)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      value={nodeTargetWordCount || ''}
+                      onChange={(e) => handleTargetWordCountChange(parseInt(e.target.value) || 0)}
+                      placeholder="未設定字數目標"
+                      className="w-full p-2 pr-8 bg-white dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 rounded-lg outline-none focus:border-amber-500 text-xs text-stone-800 dark:text-stone-200"
+                    />
+                    <span className="absolute right-2.5 top-2 text-[10px] font-bold text-stone-400 dark:text-stone-500 font-sans">
+                      字
+                    </span>
+                  </div>
+                </div>
 
-            {/* Scene Notes */}
-            <div>
-              <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1">
-                本章大綱與伏筆備忘錄
-              </label>
-              <textarea
-                value={sceneNote}
-                onChange={(e) => setSceneNote(e.target.value)}
-                placeholder="在此記錄本章節的伏筆、角色動機或情節推進邏輯..."
-                className="w-full h-32 p-3 bg-white dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 rounded-lg outline-none focus:border-amber-500 dark:text-stone-200 text-xs leading-relaxed resize-none"
-              />
-            </div>
+                {/* Single Document Tags */}
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                    <Tag size={11} className="text-amber-600 dark:text-amber-500" /> 單篇文件標籤
+                  </label>
+                  <div className="space-y-2">
+                    <div className="flex space-x-1.5">
+                      <input
+                        type="text"
+                        value={newTagInput}
+                        onChange={(e) => setNewTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTag();
+                          }
+                        }}
+                        placeholder="輸入標籤後按 Enter 或點擊「+」"
+                        className="flex-1 p-2 bg-white dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 rounded-lg outline-none focus:border-amber-500 text-xs text-stone-800 dark:text-stone-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTag}
+                        className="p-2 bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-200 dark:border-amber-900 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900 transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+
+                    {nodeTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {nodeTags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-200/40 dark:border-amber-900/40"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="hover:bg-amber-200 dark:hover:bg-amber-900 rounded-full p-0.5 text-amber-700 dark:text-amber-300 transition-colors"
+                            >
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-stone-400 dark:text-stone-500 italic">
+                        尚未為此文件建立任何標籤。
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Document Status */}
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1">
+                    草稿狀態標籤
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'draft', label: '初稿 Draft' },
+                      { id: 'revised', label: '二修 Revised' },
+                      { id: 'final', label: '定稿 Final' }
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => handleStatusChange(st.id as any)}
+                        className={`py-1.5 rounded border text-[11px] font-medium transition-all ${
+                          nodeStatus === st.id
+                            ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 font-bold'
+                            : 'border-stone-200 dark:border-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scene Notes */}
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider block mb-1">
+                    本章大綱與伏筆備忘錄
+                  </label>
+                  <textarea
+                    value={sceneNote}
+                    onChange={(e) => handleNoteChange(e.target.value)}
+                    placeholder="在此記錄本章節的伏筆、角色動機或情節推進邏輯..."
+                    className="w-full h-32 p-3 bg-white dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 rounded-lg outline-none focus:border-amber-500 dark:text-stone-200 text-xs leading-relaxed resize-none font-sans"
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 
