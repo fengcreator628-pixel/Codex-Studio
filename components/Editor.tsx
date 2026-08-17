@@ -792,6 +792,8 @@ export const Editor: React.FC<EditorProps> = ({
       newContent = content.slice(0, rev.startIndex) + content.slice(rev.endIndex);
     } else if (rev.type === 'insert') {
       newContent = content.slice(0, rev.startIndex) + rev.revisedText + content.slice(rev.startIndex);
+    } else if (rev.type === 'replace') {
+      newContent = content.slice(0, rev.startIndex) + rev.revisedText + content.slice(rev.endIndex);
     }
     const shift = (rev.revisedText?.length || 0) - (rev.originalText?.length || 0);
     const otherRevisions = revisions.filter(r => r.id !== rev.id && r.status === 'pending');
