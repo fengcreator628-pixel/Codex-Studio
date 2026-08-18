@@ -20,6 +20,9 @@ interface RichTextToolbarProps {
   setFontFamily: (font: string) => void;
   fontSize: string;
   setFontSize: (size: string) => void;
+  indentEnabled?: boolean;
+  onToggleIndent?: () => void;
+  lang?: string;
 }
 
 export const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
@@ -36,6 +39,9 @@ export const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
   setFontFamily,
   fontSize,
   setFontSize,
+  indentEnabled = false,
+  onToggleIndent,
+  lang = 'zh',
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -281,6 +287,25 @@ export const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
         >
           <AlignJustify size={14} />
         </button>
+
+        <div className="w-px h-3 bg-stone-200 dark:bg-stone-700 self-center mx-0.5" />
+
+        {/* First-line Indent Button, merged beautifully into standard alignments */}
+        <button
+          onClick={onToggleIndent}
+          onMouseDown={(e) => e.preventDefault()}
+          className={`p-1.5 rounded transition-all ${
+            indentEnabled
+              ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 shadow-2xs font-extrabold'
+              : 'text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700'
+          }`}
+          title={lang === 'zh' ? "自動首行縮排 (中文自動 2em 縮排)" : "First-line Indent (1.5em)"}
+        >
+          <AlignJustify size={14} className={indentEnabled ? "text-amber-700 dark:text-amber-400 font-bold" : "text-stone-700 dark:text-stone-200"} />
+        </button>
+
+        <div className="w-px h-3 bg-stone-200 dark:bg-stone-700 self-center mx-0.5" />
+
         <button
           onClick={() => onExecuteCommand('indent')}
           className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-700 rounded text-stone-700 dark:text-stone-200"
@@ -376,6 +401,8 @@ export const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
           <Check size={13} />
           <span>拼字檢查</span>
         </button>
+
+
 
         <button
           onClick={onOpenSnapshots}

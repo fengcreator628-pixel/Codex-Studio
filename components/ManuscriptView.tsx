@@ -14,6 +14,7 @@ interface ManuscriptViewProps {
   onUpdateProject: (updated: Project) => void;
   onUpdateRevisions: () => void;
   onOpenTargetModal: () => void;
+  indentEnabled?: boolean;
 }
 
 // Word-level LCS Diff helper function to highlight text changes
@@ -89,6 +90,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
   onUpdateProject,
   onUpdateRevisions,
   onOpenTargetModal,
+  indentEnabled = false,
 }) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -722,7 +724,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
                               <span>即時修訂差異預覽 (Live Diff)</span>
                             </span>
                             <div 
-                              className="prose prose-sm dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-xs bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 p-3 rounded-lg shadow-xs"
+                              className={`prose prose-sm dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-xs bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 p-3 rounded-lg shadow-xs ${indentEnabled ? 'indent-novel' : ''}`}
                               dangerouslySetInnerHTML={{ __html: computeWordDiff(doc.content, editDraftContent) || '<p class="italic text-stone-400">尚未修改內容...</p>' }}
                             />
                           </div>
@@ -746,7 +748,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
                         <>
                           {/* Full Content Prose Reader */}
                           <div
-                            className="prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-base min-h-[100px] border-t border-dashed border-stone-100 dark:border-stone-800/60 pt-4"
+                            className={`prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-base min-h-[100px] border-t border-dashed border-stone-100 dark:border-stone-800/60 pt-4 ${indentEnabled ? 'indent-novel' : ''}`}
                             dangerouslySetInnerHTML={{ __html: doc.content || '<p class="italic text-stone-300 dark:text-stone-700">（本章節尚無內容，請回文字編輯器撰寫）</p>' }}
                           />
 
@@ -780,7 +782,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
                                       </div>
                                     </div>
                                     <div 
-                                      className="prose prose-sm dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-xs bg-white dark:bg-stone-900/60 p-3 rounded-lg border border-stone-150 dark:border-stone-800/80"
+                                      className={`prose prose-sm dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-xs bg-white dark:bg-stone-900/60 p-3 rounded-lg border border-stone-150 dark:border-stone-800/80 ${indentEnabled ? 'indent-novel' : ''}`}
                                       dangerouslySetInnerHTML={{ __html: computeWordDiff(rev.originalText, rev.revisedText) }}
                                     />
                                   </div>
@@ -883,7 +885,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
                       <span>即時修訂差異預覽 (Live Diff)</span>
                     </span>
                     <div 
-                      className="prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-base bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 p-5 rounded-xl shadow-xs"
+                      className={`prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-base bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800 p-5 rounded-xl shadow-xs ${indentEnabled ? 'indent-novel' : ''}`}
                       dangerouslySetInnerHTML={{ __html: computeWordDiff(selectedNode.content, editDraftContent) || '<p class="italic text-stone-400">尚未修改內容...</p>' }}
                     />
                   </div>
@@ -907,7 +909,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
                 <>
                   {/* Reader HTML Content */}
                   <div
-                    className="prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-base min-h-[300px]"
+                    className={`prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-base min-h-[300px] ${indentEnabled ? 'indent-novel' : ''}`}
                     dangerouslySetInnerHTML={{ __html: selectedNode?.content || '<p className="italic text-stone-400">（本章節尚無內容，請回文字編輯器撰寫）</p>' }}
                   />
 
@@ -941,7 +943,7 @@ export const ManuscriptView: React.FC<ManuscriptViewProps> = ({
                               </div>
                             </div>
                             <div 
-                              className="prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-sm bg-white dark:bg-stone-900/60 p-4 rounded-xl border border-stone-150 dark:border-stone-800/80 shadow-inner"
+                              className={`prose dark:prose-invert max-w-none text-stone-800 dark:text-stone-200 font-serif leading-relaxed text-sm bg-white dark:bg-stone-900/60 p-4 rounded-xl border border-stone-150 dark:border-stone-800/80 shadow-inner ${indentEnabled ? 'indent-novel' : ''}`}
                               dangerouslySetInnerHTML={{ __html: computeWordDiff(rev.originalText, rev.revisedText) }}
                             />
                           </div>

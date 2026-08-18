@@ -5,7 +5,7 @@ import { calculateStreak, getTodaySessionStats, getLocalDateString } from '../se
 import { saveOfflineDraft, getOfflineDraft, clearOfflineDraft, OfflineDraft } from '../services/offline';
 import { 
   ArrowLeft, Flame, Eye, PenTool, Trash2, X, Bold, Italic, Underline, Undo, Redo, Save, 
-  Sidebar, PanelRight, Sparkles, Download, Maximize2, CheckCircle2, LayoutGrid, FileText, Type,
+  Sidebar, PanelRight, Sparkles, Download, Maximize2, Minimize2, CheckCircle2, LayoutGrid, FileText, Type,
   BookOpen, Target, Camera, Search, HelpCircle, Check, Keyboard, Compass, Clock, Layers
 } from 'lucide-react';
 import { RevisionSidebar } from './RevisionSidebar';
@@ -138,6 +138,7 @@ export const Editor: React.FC<EditorProps> = ({
   const [showShortcutModal, setShowShortcutModal] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
+  const [indentEnabled, setIndentEnabled] = useState(false);
   const [showWorkshopMenu, setShowWorkshopMenu] = useState(false);
   const [fontFamily, setFontFamily] = useState('Noto Serif TC, Songti TC, serif');
   const [fontSize, setFontSize] = useState('3');
@@ -167,7 +168,7 @@ export const Editor: React.FC<EditorProps> = ({
     savedContent: string;
   }>({ isOpen: false, draft: null, savedContent: '' });
 
-  const { t } = useSettings();
+  const { lang, t } = useSettings();
   
   // Suggestion State
   const [suggestion, setSuggestion] = useState<string | null>(null);
@@ -227,11 +228,12 @@ export const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     if (editorRef.current && activeNode && activeNode.type !== 'whiteboard') {
       const clean = cleanContent(content || activeNode.content || '');
-      if (editorRef.current.innerHTML !== clean) {
+      // Only overwrite if currently empty or if different document to avoid stealing focus during typing/state updates
+      if (!editorRef.current.innerHTML || editorRef.current.innerHTML === '<br>' || editorRef.current.innerHTML === '') {
         editorRef.current.innerHTML = clean;
       }
     }
-  });
+  }, [activeNodeId]);
 
   // Check for unsaved offline draft when activeNodeId changes
   useEffect(() => {
@@ -382,24 +384,9 @@ export const Editor: React.FC<EditorProps> = ({
 
   const realtimeTodayWords = getRealtimeTodayWords();
 
-  // --- AI Suggestion Logic ---
+  // --- AI Suggestion Logic (Disabled as requested) ---
   const fetchSuggestion = async (textContext: string) => {
-      if (mode !== 'author' || !process.env.API_KEY || !textContext.trim()) return;
-
-      try {
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: `Complete the following sentence or phrase naturally. Return ONLY the completion text (max 10 words). Context: "${textContext.slice(-500)}"`,
-          });
-          
-          const completion = response.text;
-          if (completion && completion.trim().length > 0) {
-              setSuggestion(completion);
-          }
-      } catch (e) {
-          console.debug("Suggestion failed", e);
-      }
+      return; // Disabled AI continuation suggestions
   };
 
   // Render suggestion into DOM
@@ -459,6 +446,12 @@ export const Editor: React.FC<EditorProps> = ({
   // Global Custom Keyboard Shortcuts Listener
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && focusMode) {
+        e.preventDefault();
+        setFocusMode(false);
+        return;
+      }
+
       const scs = getShortcuts();
       const isCtrl = e.ctrlKey || e.metaKey;
       const isAlt = e.altKey;
@@ -524,7 +517,21 @@ export const Editor: React.FC<EditorProps> = ({
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [localProject, activeNodeId, content]);
+  }, [localProject, activeNodeId, content, focusMode]);
+
+  // Sync sidebars with Focus Mode
+  const prevSidebarState = useRef({ left: true, right: true });
+
+  useEffect(() => {
+    if (focusMode) {
+      prevSidebarState.current = { left: leftOpen, right: rightOpen };
+      setLeftOpen(false);
+      setRightOpen(false);
+    } else {
+      setLeftOpen(prevSidebarState.current.left);
+      setRightOpen(prevSidebarState.current.right);
+    }
+  }, [focusMode]);
 
   const handleInput = () => {
     if (editorRef.current) {
@@ -543,12 +550,15 @@ export const Editor: React.FC<EditorProps> = ({
         setTimeout(handleTypewriterScroll, 50);
       }
 
+      // AI Suggestions are disabled
+      /*
       if (mode === 'author') {
           const textContext = editorRef.current.innerText; 
           suggestionTimeoutRef.current = setTimeout(() => {
               fetchSuggestion(textContext);
           }, 1200);
       }
+      */
     }
   };
 
@@ -727,7 +737,7 @@ export const Editor: React.FC<EditorProps> = ({
 
     return (
         <div 
-          className="font-serif text-lg leading-loose outline-none min-h-[500px] whitespace-pre-wrap review-content dark:text-stone-200"
+          className={`font-serif text-lg leading-loose outline-none min-h-[500px] whitespace-pre-wrap review-content dark:text-stone-200 ${indentEnabled ? 'indent-novel' : ''}`}
           onMouseUp={() => {
               const sel = window.getSelection();
               if (!sel || sel.rangeCount === 0) return;
@@ -893,9 +903,11 @@ export const Editor: React.FC<EditorProps> = ({
   );
 
   const CenterPanel = (
-    <div className="flex flex-col h-full">
+    <div lang={lang} className={`flex flex-col h-full lang-${lang}`}>
         {/* Header */}
-        <header className="h-16 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between px-6 flex-shrink-0 z-20 transition-colors duration-300">
+        <header className={`border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between px-6 flex-shrink-0 z-20 transition-all duration-500 ease-in-out overflow-hidden ${
+          focusMode ? 'h-0 opacity-0 -translate-y-full pointer-events-none' : 'h-16 opacity-100 translate-y-0'
+        }`}>
             <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
                 <button onClick={onBack} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full text-stone-500 dark:text-stone-400 transition-colors">
@@ -981,6 +993,19 @@ export const Editor: React.FC<EditorProps> = ({
                 <Layers size={16} className={isReferenceSplitOpen ? 'text-white' : 'text-amber-600 dark:text-amber-400'} />
               </button>
 
+              {/* Focus Mode Button */}
+              <button
+                onClick={() => setFocusMode(!focusMode)}
+                className={`p-2 rounded-lg border transition-all ${
+                  focusMode 
+                    ? 'bg-amber-600 text-white border-amber-600 hover:bg-amber-700' 
+                    : 'border-amber-200 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100'
+                }`}
+                title="專注模式 (隱藏所有面板與工具列，極簡寫作)"
+              >
+                <Maximize2 size={16} className={focusMode ? 'text-white' : 'text-amber-600 dark:text-amber-400'} />
+              </button>
+
               {/* View Switcher Segmented Control (Icons with tooltips) */}
               <div className="flex items-center bg-stone-100 dark:bg-stone-800 p-1 rounded-lg border border-stone-200 dark:border-stone-700 space-x-0.5">
                 <button
@@ -1052,21 +1077,28 @@ export const Editor: React.FC<EditorProps> = ({
 
         {/* Secondary Rich Text Formatting Toolbar */}
         {!isWhiteboard && centerView === 'editor' && !readingMode && (
-          <RichTextToolbar
-            onExecuteCommand={executeCommand}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onToggleFindReplace={() => setShowFindReplace(!showFindReplace)}
-            onToggleSpellcheck={() => setSpellcheckEnabled(!spellcheckEnabled)}
-            spellcheckEnabled={spellcheckEnabled}
-            onInsertSceneDivider={handleInsertSceneDivider}
-            onOpenSnapshots={() => setShowSnapshotModal(true)}
-            onOpenWiki={() => setShowWikiModal(true)}
-            fontFamily={fontFamily}
-            setFontFamily={setFontFamily}
-            fontSize={fontSize}
-            setFontSize={setFontSize}
-          />
+          <div className={`transition-all duration-500 ease-in-out overflow-hidden flex-shrink-0 ${
+            focusMode ? 'max-h-0 opacity-0 -translate-y-4 pointer-events-none' : 'max-h-24 opacity-100 translate-y-0'
+          }`}>
+            <RichTextToolbar
+              onExecuteCommand={executeCommand}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onToggleFindReplace={() => setShowFindReplace(!showFindReplace)}
+              onToggleSpellcheck={() => setSpellcheckEnabled(!spellcheckEnabled)}
+              spellcheckEnabled={spellcheckEnabled}
+              onInsertSceneDivider={handleInsertSceneDivider}
+              onOpenSnapshots={() => setShowSnapshotModal(true)}
+              onOpenWiki={() => setShowWikiModal(true)}
+              fontFamily={fontFamily}
+              setFontFamily={setFontFamily}
+              fontSize={fontSize}
+              setFontSize={setFontSize}
+              indentEnabled={indentEnabled}
+              onToggleIndent={() => setIndentEnabled(!indentEnabled)}
+              lang={lang}
+            />
+          </div>
         )}
 
         {/* Search & Replace Bar */}
@@ -1079,7 +1111,13 @@ export const Editor: React.FC<EditorProps> = ({
         )}
 
         {/* Editor Stage */}
-        <main className={`flex-1 overflow-y-auto relative custom-scrollbar ${isWhiteboard || centerView === 'manuscript' || centerView === 'wiki' ? 'bg-stone-100 dark:bg-stone-950 overflow-hidden' : ''}`}>
+        <main className={`flex-1 overflow-y-auto relative custom-scrollbar transition-all duration-500 ease-in-out ${
+          focusMode 
+            ? 'bg-stone-50 dark:bg-stone-900 overflow-y-auto' 
+            : isWhiteboard || centerView === 'manuscript' || centerView === 'wiki' 
+              ? 'bg-stone-100 dark:bg-stone-950 overflow-hidden' 
+              : ''
+        }`}>
             {readingMode ? (
               <div className="max-w-3xl mx-auto py-12 px-10 bg-amber-50/40 dark:bg-stone-900/40 shadow-sm my-8 border border-stone-200/60 dark:border-stone-800 rounded-2xl transition-all duration-300 min-h-[calc(100vh-8rem)]">
                 <div className="mb-6 pb-4 border-b border-amber-200/50 dark:border-stone-800 flex items-center justify-between">
@@ -1101,7 +1139,7 @@ export const Editor: React.FC<EditorProps> = ({
                   </button>
                 </div>
                 <div 
-                  className="w-full text-lg leading-loose text-stone-800 dark:text-stone-200 font-serif select-text"
+                  className={`w-full text-lg leading-loose text-stone-800 dark:text-stone-200 font-serif select-text ${indentEnabled ? 'indent-novel' : ''}`}
                   dangerouslySetInnerHTML={{ __html: content || '<p class="italic text-stone-400">當前稿件無內容...</p>' }}
                 />
               </div>
@@ -1121,6 +1159,7 @@ export const Editor: React.FC<EditorProps> = ({
                 onUpdateProject={persistProject}
                 onUpdateRevisions={onUpdate}
                 onOpenTargetModal={() => setShowTargetModal(true)}
+                indentEnabled={indentEnabled}
               />
             ) : centerView === 'corkboard' ? (
               <CorkboardView
@@ -1159,7 +1198,7 @@ export const Editor: React.FC<EditorProps> = ({
                           onClick={typewriterMode ? handleTypewriterScroll : undefined}
                           onKeyUp={typewriterMode ? handleTypewriterScroll : undefined}
                           onBlur={() => setSuggestion(null)}
-                          className={`w-full h-full min-h-[60vh] outline-none text-lg leading-loose text-stone-800 dark:text-stone-200 empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300 dark:empty:before:text-stone-600 ${typewriterMode ? 'py-[35vh]' : ''}`}
+                          className={`w-full h-full min-h-[60vh] outline-none text-lg leading-loose text-stone-800 dark:text-stone-200 empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300 dark:empty:before:text-stone-600 ${typewriterMode ? 'py-[35vh]' : ''} ${indentEnabled ? 'indent-novel' : ''}`}
                           data-placeholder={t('editor.placeholder')}
                           />
                       ) : (
@@ -1296,7 +1335,11 @@ export const Editor: React.FC<EditorProps> = ({
                   </div>
                 </div>
             ) : (
-                <div className="max-w-3xl mx-auto py-12 px-12 min-h-[calc(100vh-8rem)] bg-white dark:bg-stone-900 shadow-sm my-8 border border-stone-200 dark:border-stone-800 transition-colors duration-300">
+                <div className={`max-w-3xl mx-auto transition-all duration-500 ease-in-out ${
+                  focusMode 
+                    ? 'py-20 px-8 min-h-screen bg-transparent shadow-none border-none my-0' 
+                    : 'py-12 px-12 min-h-[calc(100vh-8rem)] bg-white dark:bg-stone-900 shadow-sm my-8 border border-stone-200 dark:border-stone-800'
+                }`}>
                 {!activeNode ? (
                     <div className="flex flex-col items-center justify-center h-64 text-stone-400">
                         <p className="font-serif italic text-lg">請在左側「目錄與書架」選擇或新增章節文件以開始創作。</p>
@@ -1313,7 +1356,7 @@ export const Editor: React.FC<EditorProps> = ({
                     onClick={typewriterMode ? handleTypewriterScroll : undefined}
                     onKeyUp={typewriterMode ? handleTypewriterScroll : undefined}
                     onBlur={() => setSuggestion(null)}
-                    className={`w-full h-full min-h-[60vh] outline-none text-lg leading-loose text-stone-800 dark:text-stone-200 empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300 dark:empty:before:text-stone-600 ${typewriterMode ? 'py-[35vh]' : ''}`}
+                    className={`w-full h-full min-h-[60vh] outline-none text-lg leading-loose text-stone-800 dark:text-stone-200 empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300 dark:empty:before:text-stone-600 ${typewriterMode ? 'py-[35vh]' : ''} ${indentEnabled ? 'indent-novel' : ''}`}
                     data-placeholder={t('editor.placeholder')}
                     />
                 ) : (
@@ -1376,13 +1419,6 @@ export const Editor: React.FC<EditorProps> = ({
                 <span className={realtimeTodayWords >= 50 ? 'text-emerald-600 dark:text-emerald-500 font-bold' : ''}>
                 {t('editor.today')}: +{realtimeTodayWords} {t('editor.words')}
                 </span>
-
-                {suggestion && !isWhiteboard && (
-                   <span className="ml-4 flex items-center text-amber-600 dark:text-amber-500 animate-pulse">
-                      <Sparkles size={11} className="mr-1" />
-                      按下 Tab 鍵採納 AI 續寫建議
-                   </span>
-                )}
             </div>
             
             <div className={`flex items-center space-x-2 ${streakInfo.currentStreak > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-stone-400 dark:text-stone-600'}`}>
@@ -1414,17 +1450,18 @@ export const Editor: React.FC<EditorProps> = ({
         />
       )}
 
-      {/* Focus Mode Sanctuary Overlay */}
+      {/* Floating Exit Focus Mode Button */}
       {focusMode && (
-        <FocusModeOverlay
-          content={content}
-          onChange={(newContent) => {
-            setContent(newContent);
-            updateActiveNodeContent(newContent);
-          }}
-          documentTitle={activeNode ? activeNode.title : project.title}
-          onExit={() => setFocusMode(false)}
-        />
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <button
+            onClick={() => setFocusMode(false)}
+            className="flex items-center space-x-1.5 px-4 py-2 bg-stone-900/90 hover:bg-stone-900 dark:bg-stone-100/90 dark:hover:bg-stone-100 text-white dark:text-stone-900 rounded-full shadow-lg border border-stone-700/30 dark:border-stone-200/50 backdrop-blur-xs transition-all duration-300 text-xs font-sans font-bold"
+            title="Press Escape or click to exit Focus Mode"
+          >
+            <Minimize2 size={13} />
+            <span>離開專注模式 (Esc)</span>
+          </button>
+        </div>
       )}
 
       {/* Project Target & Goal Settings Modal */}

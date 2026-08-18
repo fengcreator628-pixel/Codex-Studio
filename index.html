@@ -63,6 +63,26 @@
       .dark ::-webkit-scrollbar-thumb {
         background-color: #44403c;
       }
+      /* Multi-lingual First-line Paragraph Indentation standards */
+      /* Word-style Standard: Exactly 2 characters (2em) */
+      .indent-novel {
+        text-indent: 2em !important;
+      }
+      /* If the editor itself is explicitly marked as English */
+      .indent-novel.lang-en {
+        text-indent: 1.5em !important;
+      }
+      /* Exclude scene dividers or explicitly centered elements from indenting */
+      .indent-novel p[style*="text-align:center"],
+      .indent-novel p[style*="text-align: center"],
+      .indent-novel div[style*="text-align:center"],
+      .indent-novel div[style*="text-align: center"],
+      .indent-novel p.no-indent,
+      .indent-novel div.no-indent,
+      .indent-novel .no-indent p,
+      .indent-novel .no-indent div {
+        text-indent: 0 !important;
+      }
     </style>
   <script type="importmap">
 {
